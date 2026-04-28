@@ -1,0 +1,45 @@
+[package]
+edition = "2024"
+name = "embassy-ttp223b"
+version = "0.1.0"
+authors = ["Jorge Andre Castro <georgeandrec@gmail.com>"]
+build = false
+autolib = false
+autobins = false
+autoexamples = false
+autotests = false
+autobenches = false
+description = "Driver async no_std pour le capteur tactile TTP223B via GPIO, basé sur Embassy."
+documentation = "https://docs.rs/embassy-ttp223b"
+readme = "README.md"
+keywords = [
+    "embassy",
+    "ttp223",
+    "touch",
+    "no-std",
+    "embedded",
+]
+categories = [
+    "embedded",
+    "no-std",
+    "hardware-support",
+]
+license = "GPL-3.0-or-later"
+repository = "https://github.com/jorgeandrecastro/embassy-ttp223b"
+
+[lib]
+name = "embassy_ttp223b"
+path = "src/lib.rs"
+
+[dependencies.embassy-time]
+version = ">=0.3, <0.5"
+
+[dependencies.embedded-hal]
+version = "1.0"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
