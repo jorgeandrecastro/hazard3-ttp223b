@@ -10,7 +10,7 @@ Driver asynchrone `no_std` pour le capteur tactile **TTP223B** via GPIO, testé 
 
 ---
 
-## Câblage
+## Câblage exemple Testé 
 
 ### Waveshare Pico 2350B
 
