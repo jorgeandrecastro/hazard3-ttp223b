@@ -32,7 +32,7 @@ name = "embassy_ttp223b"
 path = "src/lib.rs"
 
 [dependencies.embassy-time]
-version = "0.5"
+version = "0.5.1"
 
 [dependencies.embedded-hal]
 version = "1.0"
