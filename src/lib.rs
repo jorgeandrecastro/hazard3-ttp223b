@@ -4,62 +4,78 @@
 #![no_std]
 #![forbid(unsafe_code)]
 
-//! # embassy-ttp223b
+//! # hazard3-ttp223b
 //!
-//! Driver asynchrone `no_std` pour le capteur tactile TTP223B via GPIO.
-//! Élimine les faux positifs par un filtrage temporel logiciel (debounce)
-//! sans jamais bloquer le CPU, garantissant une efficacité énergétique maximale.
+//! Asynchronous `no_std` GPIO driver for the TTP223B touch sensor.
+//! Filters false positives with software debouncing without blocking waits.
 //!
-//! Fonctionne avec n'importe quel pin implémentant `embedded-hal::digital::InputPin`
-//! et l'exécuteur asynchrone Embassy.
+//! Part of the independent
+//! [Hazard3 Async](https://github.com/jorgeandrecastro/hazard3-async).
+//! Works with a pin implementing `embedded_hal::digital::InputPin`.
+//! The default backend uses `hazard3-time`; for upstream Embassy, disable
+//! default features and enable `time-upstream`.
 //!
-//! # Exemple
+//! # Example
 //!
 //! ```rust,no_run
-//! use embassy_ttp223b::{Ttp223, TouchState};
+//! use embedded_hal::digital::InputPin;
+//! use hazard3_ttp223b::{Ttp223, TouchState};
 //!
-//! let mut touch = Ttp223::new(pin);
+//! async fn watch<P: InputPin>(pin: P) {
+//!     let mut touch = Ttp223::new(pin);
 //!
-//! loop {
-//!     match touch.wait_for_change().await {
-//!         Ok(TouchState::Pressed)  => { /* réaction au toucher */ }
-//!         Ok(TouchState::Released) => { /* relâchement */ }
-//!         Err(_) => { /* gestion d'erreur */ }
+//!     loop {
+//!         match touch.wait_for_change().await {
+//!             Ok(TouchState::Pressed)  => { /* handle touch */ }
+//!             Ok(TouchState::Released) => { /* handle release */ }
+//!             Err(_) => { /* handle error */ }
+//!         }
 //!     }
 //! }
 //! ```
 
+#[cfg(all(feature = "time-hazard3", feature = "time-upstream"))]
+compile_error!("Features \"time-hazard3\" and \"time-upstream\" are mutually exclusive.");
+
+#[cfg(not(any(feature = "time-hazard3", feature = "time-upstream")))]
+compile_error!("Select one time backend: \"time-hazard3\" or \"time-upstream\".");
+
+#[cfg(feature = "time-upstream")]
+extern crate embassy_time;
+
+#[cfg(all(feature = "time-hazard3", not(feature = "time-upstream")))]
+extern crate time_hazard3_backend as embassy_time;
+
 use embassy_time::{Duration, Timer};
 use embedded_hal::digital::InputPin;
 
-/// Durée de debounce par défaut (ms).
+/// Default debounce duration (ms).
 pub const DEBOUNCE_MS: u64 = 50;
 
-/// Durée de polling par défaut quand aucun changement n'est détecté (ms).
+/// Default polling interval when no change is detected (ms).
 pub const POLL_MS: u64 = 10;
 
-/// États possibles du capteur tactile.
+/// Possible touch sensor states.
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum TouchState {
-    /// Le capteur est pressé (signal haut).
+    /// The sensor is pressed (high signal).
     Pressed,
-    /// Le capteur est relâché (signal bas).
+    /// The sensor is released (low signal).
     Released,
 }
 
-/// Erreurs spécifiques au capteur TTP223B.
+/// TTP223B sensor errors.
 #[derive(Debug)]
 pub enum TouchError {
-    /// Problème de lecture matérielle sur le GPIO.
+    /// GPIO hardware read error.
     ReadError,
-    /// Le signal oscille trop pour être considéré fiable.
+    /// The signal oscillates too much to be considered reliable.
     SignalUnstable,
 }
 
-/// Instance principale du driver TTP223B.
+/// Main TTP223B driver instance.
 ///
-/// Fonctionne avec n'importe quel pin implémentant
-/// `embedded-hal::digital::InputPin`.
+/// Works with any pin implementing `embedded_hal::digital::InputPin`.
 pub struct Ttp223<P: InputPin> {
     pin: P,
     last_confirmed_state: bool,
@@ -68,13 +84,13 @@ pub struct Ttp223<P: InputPin> {
 }
 
 impl<P: InputPin> Ttp223<P> {
-    /// Initialise une nouvelle instance du driver avec un pin GPIO.
+    /// Initializes a new driver instance with a GPIO pin.
     ///
-    /// Utilise les durées de debounce et de polling par défaut
-    /// ([`DEBOUNCE_MS`] et [`POLL_MS`]).
+    /// Uses the default debounce and polling durations
+    /// ([`DEBOUNCE_MS`] and [`POLL_MS`]).
     ///
     /// # Arguments
-    /// * `pin` — Pin GPIO configuré en entrée.
+    /// * `pin` — GPIO pin configured as an input.
     pub fn new(pin: P) -> Self {
         Self {
             pin,
@@ -84,12 +100,12 @@ impl<P: InputPin> Ttp223<P> {
         }
     }
 
-    /// Initialise une nouvelle instance avec des durées personnalisées.
+    /// Initializes a new instance with custom timings.
     ///
     /// # Arguments
-    /// * `pin`          Pin GPIO configuré en entrée.
-    /// * `debounce_ms`  Durée d'attente de stabilisation (ms).
-    /// * `poll_ms`     Période de polling en l'absence de changement (ms).
+    /// * `pin` — GPIO pin configured as an input.
+    /// * `debounce_ms` — Stabilization wait duration (ms).
+    /// * `poll_ms` — Polling interval when there is no change (ms).
     pub fn new_with_timing(pin: P, debounce_ms: u64, poll_ms: u64) -> Self {
         Self {
             pin,
@@ -99,30 +115,24 @@ impl<P: InputPin> Ttp223<P> {
         }
     }
 
-    /// Attend un changement d'état avec confirmation temporelle (debounce).
+    /// Waits for a state change with timed confirmation (debounce).
     ///
-    /// Cette fonction est asynchrone : elle rend la main à l'exécuteur
-    /// pendant les phases d'attente ([`Timer`]), sans jamais bloquer le CPU.
+    /// This asynchronous function yields to the executor during waits
+    /// ([`Timer`]) without blocking the CPU.
     ///
-    /// # Retourne
-    /// * `Ok(TouchState::Pressed)`  Toucher confirmé.
-    /// * `Ok(TouchState::Released)` Relâchement confirmé.
-    /// * `Err(TouchError::ReadError)` Erreur de lecture GPIO.
+    /// # Returns
+    /// * `Ok(TouchState::Pressed)` — Confirmed touch.
+    /// * `Ok(TouchState::Released)` — Confirmed release.
+    /// * `Err(TouchError::ReadError)` — GPIO read error.
     pub async fn wait_for_change(&mut self) -> Result<TouchState, TouchError> {
         loop {
-            let current_raw = self
-                .pin
-                .is_high()
-                .map_err(|_| TouchError::ReadError)?;
+            let current_raw = self.pin.is_high().map_err(|_| TouchError::ReadError)?;
 
             if current_raw != self.last_confirmed_state {
-                // Debounce : attendre que les rebonds électriques se calment.
+                // Debounce: wait for electrical bouncing to settle.
                 Timer::after(Duration::from_millis(self.debounce_ms)).await;
 
-                let confirmed = self
-                    .pin
-                    .is_high()
-                    .map_err(|_| TouchError::ReadError)?;
+                let confirmed = self.pin.is_high().map_err(|_| TouchError::ReadError)?;
 
                 if confirmed == current_raw {
                     self.last_confirmed_state = confirmed;
@@ -132,17 +142,17 @@ impl<P: InputPin> Ttp223<P> {
                         TouchState::Released
                     });
                 }
-                // Signal instable : on ignore et on reboucle.
+                // Ignore an unstable signal and retry.
             }
 
-            // Pause légère pour ne pas saturer le scheduler.
+            // Brief pause to avoid overwhelming the scheduler.
             Timer::after(Duration::from_millis(self.poll_ms)).await;
         }
     }
 
-    /// Renvoie l'état mémorisé sans attendre de nouveau changement.
+    /// Returns the stored state without waiting for another change.
     ///
-    /// Utile pour consulter l'état courant dans une tâche périodique.
+    /// Useful for checking the current state in a periodic task.
     pub fn get_state(&self) -> TouchState {
         if self.last_confirmed_state {
             TouchState::Pressed
@@ -151,12 +161,12 @@ impl<P: InputPin> Ttp223<P> {
         }
     }
 
-    /// Indique si le capteur est actuellement pressé (état mémorisé).
+    /// Indicates whether the sensor is pressed (stored state).
     pub fn is_pressed(&self) -> bool {
         self.last_confirmed_state
     }
 
-    /// Libère le pin GPIO et retourne la ressource matérielle.
+    /// Releases the GPIO pin and returns the hardware resource.
     pub fn release(self) -> P {
         self.pin
     }

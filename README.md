@@ -1,12 +1,81 @@
-# Project Renamed & Migrated (hazard3-async)
+# hazard3-ttp223b
 
-This package (`embassy-ttp223b`) has been yanked and moved under the independent `hazard3-*` namespace to avoid any confusion with the upstream Embassy ecosystem. As the project evolved into a dedicated, 100% RISC-V async ecosystem for the RP2350 Hazard3 cores (removing all Arm Cortex-M and RP2040 support), renaming the crates avoids any ambiguity with upstream Embassy.
+An asynchronous `no_std` GPIO driver for the TTP223B touch sensor, part of the
+independent [Hazard3 Async](https://github.com/jorgeandrecastro/hazard3-async)
+project for the RP2350 Hazard3 RISC-V cores. It uses `embedded-hal` 1.0,
+with no allocation or `unsafe` code.
 
-- **Replacement crate:** `hazard3-ttp223b`
-- **Ecosystem hub & migration table:** https://github.com/jorgeandrecastro/hazard3-async
+- Software filtering of state changes: 50 ms debounce and 10 ms polling
+  by default, configurable with `new_with_timing`.
+- Read the confirmed state with `get_state` or `is_pressed`.
+- Release the GPIO with `release`.
 
-## License
+## Installation
 
-Copyright (C) 2026 Jorge Andre Castro
+After version 0.2.0 is published:
 
-Licensed under the [GNU General Public License v2.0 or later](LICENSE).
+```toml
+[dependencies]
+hazard3-ttp223b = "0.2.0"
+```
+
+The `time-hazard3` feature is enabled by default and uses `hazard3-time`.
+The application must provide a compatible time driver, executor, and HAL
+configuration. Use the `hazard3-*` runtime crates together without mixing
+their time drivers with upstream Embassy:
+see the [Hazard3 Async guide](https://github.com/jorgeandrecastro/hazard3-async#quick-start).
+
+### Alternative: upstream Embassy
+
+To use the official Embassy time backend instead of Hazard3:
+
+```toml
+[dependencies]
+hazard3-ttp223b = { version = "0.2.0", default-features = false, features = ["time-upstream"] }
+```
+
+This configuration requires a compatible Embassy time driver and runtime.
+Exactly one of the `time-hazard3` and `time-upstream` features must be enabled.
+
+## Migration from `embassy-ttp223b`
+
+The former `embassy-ttp223b` package was yanked to avoid confusion with
+upstream Embassy. An existing lockfile can still resolve a yanked version,
+but new dependency resolution normally cannot select it. Replace the
+dependency and Rust import:
+
+```rust
+use hazard3_ttp223b::{Ttp223, TouchState};
+```
+
+The driver's types and methods remain unchanged. The default time backend is
+now `hazard3-time`; to keep Embassy, use the `time-upstream` configuration above.
+
+## Usage
+
+Configure the GPIO as an input using your HAL. A high signal indicates a
+touch; the initial stored state is `Released` until a change is confirmed.
+
+```rust,no_run
+use embedded_hal::digital::InputPin;
+use hazard3_ttp223b::{Ttp223, TouchState};
+
+async fn watch<P: InputPin>(pin: P) {
+    let mut touch = Ttp223::new(pin);
+    loop {
+        match touch.wait_for_change().await {
+            Ok(TouchState::Pressed) => { /* touch */ }
+            Ok(TouchState::Released) => { /* release */ }
+            Err(_) => { /* GPIO read error */ }
+        }
+    }
+}
+```
+
+## Documentation and license
+
+API documentation will be available on [docs.rs](https://docs.rs/hazard3-ttp223b)
+after publication. See the [changelog](CHANGELOG.md) for the release history.
+
+Copyright (C) 2026 Jorge Andre Castro.
+Licensed under the [GNU General Public License v3.0 or later](https://www.gnu.org/licenses/gpl-3.0.html).
