@@ -105,7 +105,7 @@ dependencies = [
 
 [[package]]
 name = "hazard3-ttp223b"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "embassy-time",
  "embedded-hal 1.0.0",

@@ -1,7 +1,7 @@
 [package]
 edition = "2024"
 name = "hazard3-ttp223b"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Jorge Andre Castro <georgeandrec@gmail.com>"]
 build = false
 autolib = false
@@ -24,7 +24,7 @@ categories = [
     "no-std",
     "hardware-support",
 ]
-license = "GPL-3.0-or-later"
+license = "MIT OR Apache-2.0"
 repository = "https://github.com/jorgeandrecastro/hazard3-ttp223b"
 
 [lib]

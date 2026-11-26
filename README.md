@@ -5,6 +5,11 @@ independent [Hazard3 Async](https://github.com/jorgeandrecastro/hazard3-async)
 project for the RP2350 Hazard3 RISC-V cores. It uses `embedded-hal` 1.0,
 with no allocation or `unsafe` code.
 
+[![Crates.io](https://img.shields.io/crates/v/hazard3-ttp223b.svg)](https://crates.io/crates/hazard3-ttp223b)
+[![License: MIT OR Apache-2.0](https://img.shields.io/badge/License-MIT%20or%20Apache--2.0-blue.svg)](https://opensource.org/licenses/MIT)
+[![docs.rs](https://docs.rs/hazard3-ttp223b/badge.svg)](https://docs.rs/hazard3-ttp223b)
+
+
 - Software filtering of state changes: 50 ms debounce and 10 ms polling
   by default, configurable with `new_with_timing`.
 - Read the confirmed state with `get_state` or `is_pressed`.
@@ -12,11 +17,9 @@ with no allocation or `unsafe` code.
 
 ## Installation
 
-After version 0.2.0 is published:
-
 ```toml
 [dependencies]
-hazard3-ttp223b = "0.2.0"
+hazard3-ttp223b = "0.3.0"
 ```
 
 The `time-hazard3` feature is enabled by default and uses `hazard3-time`.
@@ -31,7 +34,7 @@ To use the official Embassy time backend instead of Hazard3:
 
 ```toml
 [dependencies]
-hazard3-ttp223b = { version = "0.2.0", default-features = false, features = ["time-upstream"] }
+hazard3-ttp223b = { version = "0.3.0", default-features = false, features = ["time-upstream"] }
 ```
 
 This configuration requires a compatible Embassy time driver and runtime.
@@ -72,10 +75,16 @@ async fn watch<P: InputPin>(pin: P) {
 }
 ```
 
-## Documentation and license
+## 🛡️ License
 
-API documentation will be available on [docs.rs](https://docs.rs/hazard3-ttp223b)
-after publication. See the [changelog](CHANGELOG.md) for the release history.
+Licensed under either of:
 
-Copyright (C) 2026 Jorge Andre Castro.
-Licensed under the [GNU General Public License v3.0 or later](https://www.gnu.org/licenses/gpl-3.0.html).
+    MIT license (http://opensource.org/licenses/MIT)
+
+    Apache License, Version 2.0 (http://www.apache.org/licenses/LICENSE-2.0)
+
+at your option.
+
+## 🦅 About
+
+Developed by Jorge Andre Castro.
